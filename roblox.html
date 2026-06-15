@@ -45,7 +45,7 @@
         var img = new Image();
         img.onload = function() {
           var isBinaryMode = document.getElementById("format").value === "binary";
-          var MAX_DIM = isBinaryMode ? 512 : 256;
+          var MAX_DIM = isBinaryMode ? 360 : 240;
           var scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
           var scaledW = Math.round(img.width * scale);
           var scaledH = Math.round(img.height * scale);
