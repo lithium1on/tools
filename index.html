@@ -2,62 +2,51 @@
 <noscript><meta http-equiv="refresh" content="0; url=https://lithium.wtf/noscript"></noscript>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>lithium's tools</title>
-
-  <!-- icon -->
-  <link rel="icon" href="https://lithium.wtf/assets/img/icon.png" />
-  
-  <!-- embed -->
+  <link rel="icon" href="https://lithium.wtf/assets/img/icon.png">
   <meta property="og:title" content="lithium's tools">
   <meta property="og:description" content="lithium's tools wow">
   <meta property="og:url" content="https://tools.lithium.wtf/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://lithium.wtf/assets/img/icon.png">
   <meta property="theme-color" content="#696969">
-  
-  <!-- styling -->
   <style>
-    #about p { margin: 0rem 0; }
-    #tools p { margin: 0rem 0; }
-
-    #title h2 { font-size: 3rem; margin: 0rem 0; }
-    #about h2 { font-size: 1.5rem; margin: 0.3rem 0; }
-    #tools h2 { font-size: 1.5rem; margin: 0.3rem 0; }
-  
-    #tools ul { margin: 0rem 0; padding-left: 1.7rem; }
-    #tools li { margin: 0rem 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { padding: 1.5rem; max-width: 600px; }
+    h1 { font-size: 2.5rem; margin-bottom: 0.2rem; }
+    h2 { font-size: 1.1rem; margin: 1.2rem 0 0.4rem; }
+    nav { margin: 0.4rem 0 0.8rem; }
+    nav a { margin-right: 0.5rem; }
+    hr { border: none; border-top: 1px solid currentColor; margin-bottom: 1.2rem; }
+    ul { padding-left: 1.2rem; }
+    li { margin-bottom: 0.3rem; }
+    li span { color: gray; font-size: 0.9rem; }
   </style>
 </head>
-
 <body>
-  <!-- header -->
   <header>
-    <section id="title">
-      <h2>lithium's tools</h2>
-    </section>
-    
+    <h1>lithium's tools</h1>
     <nav>
       <a href="#about">about</a> |
-      <a href="#tools">tools</a> |
+      <a href="#tools">tools</a>
     </nav>
-    
-    <hr />
+    <hr>
   </header>
-
-  <!-- main -->
   <main>
-    <!-- about -->
     <section id="about">
       <h2>about</h2>
-      <p>cool html/website tools i made u should check out</p>
+      <p>cool html/website tools i made, check them out</p>
     </section>
-
-    <!-- projects -->
     <section id="tools">
       <h2>tools</h2>
-      <li><a href="https://tools.lithium.wtf/roblox">roblox image to model</a>: basically image bypass, it uploads image as decal and roblox doesnt check thumbnail so it goes through (WILL STILL GET CHECKED!)</li>
+      <ul>
+        <li>
+          <a href="https://tools.lithium.wtf/roblox">roblox image to model</a>
+          <br><span>upload a png and it gets turned into a roblox model. thumbnail isn't checked immediately so it goes through — but it will still get moderated eventually.</span>
+        </li>
+      </ul>
     </section>
   </main>
 </body>
