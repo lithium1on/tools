@@ -5,11 +5,15 @@
 </head>
 <body>
   <h2>lithium's image uploader</h2>
-  <style>input,button{display:block;margin-bottom:3px}</style>
+  <style>input,button,select{display:block;margin-bottom:3px}</style>
   <input type="password" id="apiKey" placeholder="* api key" size="50">
   <input type="text" id="userId" placeholder="* username or user id" size="50">
   <input type="text" id="modelName" placeholder="model name" size="50">
   <input type="text" id="modelDesc" placeholder="description" size="50">
+  <select id="format">
+    <option value="binary">binary - slower, recommended</option>
+    <option value="xml">xml - fast processing, big file</option>
+  </select>
   <input type="file" id="imageFile" accept=".png">
   <button onclick="run()">upload</button>
   <br>
@@ -17,15 +21,10 @@
 
   <script>
     var logEl = document.getElementById("log");
+    function log(msg) { logEl.appendChild(document.createTextNode(msg + "\n")); }
+    function clearLog() { logEl.innerHTML = ""; }
 
-    function log(msg) {
-      logEl.appendChild(document.createTextNode(msg + "\n"));
-    }
-
-    function clearLog() {
-      logEl.innerHTML = "";
-    }
-
+    // ── username lookup ───────────────────────────────────────────────────────
     async function resolveUserId(input) {
       input = input.trim();
       if (/^\d+$/.test(input)) return input;
@@ -41,6 +40,7 @@
       return String(data.data[0].id);
     }
 
+    // ── png parser ────────────────────────────────────────────────────────────
     function parsePng(arrayBuffer) {
       return new Promise(function(resolve, reject) {
         var blob = new Blob([arrayBuffer], { type: "image/png" });
@@ -60,21 +60,21 @@
           ctx.drawImage(img, 0, 0, scaledW, scaledH);
           var d = ctx.getImageData(0, 0, scaledW, scaledH).data;
           var pixels = [];
-          for (var y = 0; y < scaledH; y++) {
+          for (var y = 0; y < scaledH; y++)
             for (var x = 0; x < scaledW; x++) {
               var i = (scaledW * y + x) * 4;
-              if (d[i + 3] > 128) pixels.push({ x: x, y: y, r: d[i], g: d[i+1], b: d[i+2] });
+              if (d[i+3] > 128) pixels.push({ x:x, y:y, r:d[i], g:d[i+1], b:d[i+2] });
             }
-          }
           URL.revokeObjectURL(url);
-          resolve({ pixels: pixels, scaledW: scaledW, scaledH: scaledH, origW: img.width, origH: img.height });
+          resolve({ pixels:pixels, scaledW:scaledW, scaledH:scaledH, origW:img.width, origH:img.height });
         };
         img.onerror = function() { reject(new Error("failed to load image")); };
         img.src = url;
       });
     }
 
-    function buildRbxmx(pixels, scaledW, scaledH, name, desc) {
+    // ── xml builder ───────────────────────────────────────────────────────────
+    function buildXml(pixels, scaledW, scaledH, name, desc) {
       var S = 0.05;
       var parts = pixels.map(function(px, i) {
         var posX = (px.x - scaledW / 2) * S;
@@ -89,25 +89,17 @@
           + '<token name="BottomSurface">0</token>'
           + '<Vector3 name="Size"><X>' + S + '</X><Y>' + S + '</Y><Z>' + S + '</Z></Vector3>'
           + '<CoordinateFrame name="CFrame"><X>' + posX.toFixed(4) + '</X><Y>' + posY.toFixed(4) + '</Y><Z>0</Z>'
-          + '<R00>1</R00><R01>0</R01><R02>0</R02>'
-          + '<R10>0</R10><R11>1</R11><R12>0</R12>'
-          + '<R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
+          + '<R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
           + '<Color3uint8 name="Color3uint8">' + c32 + '</Color3uint8>'
           + '</Properties></Item>';
       }).join("");
       var fov = 70;
-      var dist = (Math.max(scaledW, scaledH) * S / (2 * Math.tan((fov / 2) * Math.PI / 180)) + S * 2).toFixed(4);
+      var dist = (Math.max(scaledW, scaledH) * S / (2 * Math.tan((fov/2) * Math.PI / 180)) + S * 2).toFixed(4);
       var cam = '<Item class="Camera" referent="CAM"><Properties>'
         + '<string name="Name">ThumbnailCamera</string>'
         + '<float name="FieldOfView">' + fov + '</float>'
-        + '<CoordinateFrame name="CFrame"><X>0</X><Y>0</Y><Z>' + dist + '</Z>'
-        + '<R00>1</R00><R01>0</R01><R02>0</R02>'
-        + '<R10>0</R10><R11>1</R11><R12>0</R12>'
-        + '<R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
-        + '<CoordinateFrame name="Focus"><X>0</X><Y>0</Y><Z>0</Z>'
-        + '<R00>1</R00><R01>0</R01><R02>0</R02>'
-        + '<R10>0</R10><R11>1</R11><R12>0</R12>'
-        + '<R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
+        + '<CoordinateFrame name="CFrame"><X>0</X><Y>0</Y><Z>' + dist + '</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
+        + '<CoordinateFrame name="Focus"><X>0</X><Y>0</Y><Z>0</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
         + '</Properties></Item>';
       return '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">'
         + '<Item class="Model" referent="M"><Properties>'
@@ -116,7 +108,182 @@
         + '</Properties>' + parts + cam + '</Item></roblox>';
     }
 
-    async function upload(rbxmx, apiKey, userId, name, desc) {
+    // ── binary builder ────────────────────────────────────────────────────────
+    function buildBinary(pixels, scaledW, scaledH, name, desc) {
+      // ── primitives
+      function toRobloxFloat(f) {
+        var view = new DataView(new ArrayBuffer(4));
+        view.setFloat32(0, f, false); // big-endian
+        var n = view.getUint32(0, false);
+        var rotated = ((n << 1) | (n >>> 31)) >>> 0;
+        view.setUint32(0, rotated, false);
+        return new Uint8Array(view.buffer);
+      }
+
+      function zigzag(n) { return ((n << 1) ^ (n >> 31)) >>> 0; }
+
+      function interleave(arrays) {
+        var n = arrays.length;
+        var out = new Uint8Array(n * 4);
+        for (var b = 0; b < 4; b++)
+          for (var i = 0; i < n; i++)
+            out[b * n + i] = arrays[i][b];
+        return out;
+      }
+
+      function encodeFloats(arr) { return interleave(arr.map(toRobloxFloat)); }
+
+      function encodeInts(arr) {
+        return interleave(arr.map(function(n) {
+          var v = new DataView(new ArrayBuffer(4));
+          v.setUint32(0, zigzag(n), false);
+          return new Uint8Array(v.buffer);
+        }));
+      }
+
+      function encodeRefs(refs) {
+        var deltas = refs.map(function(r, i) { return r - (i === 0 ? 0 : refs[i-1]); });
+        return encodeInts(deltas);
+      }
+
+      function encodeStr(s) {
+        var sb = new TextEncoder().encode(s);
+        var lb = new Uint8Array(4);
+        new DataView(lb.buffer).setUint32(0, sb.length, true);
+        return concat([lb, sb]);
+      }
+
+      function u32LE(n) {
+        var b = new Uint8Array(4);
+        new DataView(b.buffer).setUint32(0, n >>> 0, true);
+        return b;
+      }
+
+      function i32LE(n) {
+        var b = new Uint8Array(4);
+        new DataView(b.buffer).setInt32(0, n, true);
+        return b;
+      }
+
+      function concat(arrays) {
+        var total = arrays.reduce(function(s, a) { return s + a.length; }, 0);
+        var out = new Uint8Array(total);
+        var pos = 0;
+        arrays.forEach(function(a) { out.set(a, pos); pos += a.length; });
+        return out;
+      }
+
+      function makeChunk(name, data) {
+        var nameBuf = new TextEncoder().encode(name.padEnd(4, '\0').slice(0,4));
+        return concat([nameBuf, u32LE(0), u32LE(data.length), u32LE(0), data]);
+      }
+
+      function makeINST(classId, className, refs) {
+        return makeChunk('INST', concat([
+          u32LE(classId), encodeStr(className),
+          new Uint8Array([0]), u32LE(refs.length), encodeRefs(refs)
+        ]));
+      }
+
+      function makePROP(classId, propName, typeId, valuesBuf) {
+        return makeChunk('PROP', concat([
+          u32LE(classId), encodeStr(propName), new Uint8Array([typeId]), valuesBuf
+        ]));
+      }
+
+      function propString(cid, pn, vals) {
+        return makePROP(cid, pn, 0x01, concat(vals.map(encodeStr)));
+      }
+      function propBool(cid, pn, vals) {
+        return makePROP(cid, pn, 0x02, new Uint8Array(vals.map(function(v){ return v?1:0; })));
+      }
+      function propEnum(cid, pn, vals) {
+        return makePROP(cid, pn, 0x12, interleave(vals.map(function(v){
+          var b = new DataView(new ArrayBuffer(4));
+          b.setUint32(0, v, false);
+          return new Uint8Array(b.buffer);
+        })));
+      }
+      function propFloat(cid, pn, vals) {
+        return makePROP(cid, pn, 0x04, encodeFloats(vals));
+      }
+      function propVector3(cid, pn, xs, ys, zs) {
+        return makePROP(cid, pn, 0x0e, concat([encodeFloats(xs), encodeFloats(ys), encodeFloats(zs)]));
+      }
+      function propCFrame(cid, pn, xs, ys, zs) {
+        // special case 0x02 = identity rotation for all instances
+        var ids = new Uint8Array(xs.length);
+        ids.fill(0x02);
+        return makePROP(cid, pn, 0x10, concat([ids, encodeFloats(xs), encodeFloats(ys), encodeFloats(zs)]));
+      }
+      function propColor3u8(cid, pn, colors) {
+        var rs = new Uint8Array(colors.map(function(c){ return c.r; }));
+        var gs = new Uint8Array(colors.map(function(c){ return c.g; }));
+        var bs = new Uint8Array(colors.map(function(c){ return c.b; }));
+        return makePROP(cid, pn, 0x1a, concat([rs, gs, bs]));
+      }
+
+      // ── layout
+      var S = 0.05;
+      var partCount = pixels.length;
+      var CLASS_MODEL = 0, CLASS_CAMERA = 1, CLASS_PART = 2;
+      var modelRef = 0, cameraRef = 1;
+      var partRefs = pixels.map(function(_, i){ return 2 + i; });
+
+      var fov = 70;
+      var dist = Math.max(scaledW, scaledH) * S / (2 * Math.tan((fov/2) * Math.PI / 180)) + S * 2;
+
+      var posX = pixels.map(function(px){ return (px.x - scaledW/2) * S; });
+      var posY = pixels.map(function(px){ return (-px.y + scaledH/2) * S; });
+      var posZ = pixels.map(function(){ return 0; });
+      var colors = pixels.map(function(px){ return { r:px.r, g:px.g, b:px.b }; });
+
+      // PRNT
+      var childRefs  = partRefs.concat([cameraRef, modelRef]);
+      var parentRefs = partRefs.map(function(){ return modelRef; }).concat([modelRef, -1]);
+
+      var makePRNT = function(cr, pr) {
+        return makeChunk('PRNT', concat([
+          new Uint8Array([0]), u32LE(cr.length),
+          encodeRefs(cr), encodeRefs(pr)
+        ]));
+      };
+
+      // header
+      var magic   = new Uint8Array([0x3c,0x72,0x6f,0x62,0x6c,0x6f,0x78,0x21,0x89,0xff,0x0d,0x0a,0x1a,0x0a]);
+      var version = new Uint8Array([0x00,0x00]);
+      var classCount = i32LE(3);
+      var instCount  = i32LE(1 + 1 + partCount);
+      var reserved   = new Uint8Array(8);
+      var header = concat([magic, version, classCount, instCount, reserved]);
+
+      return concat([
+        header,
+        makeINST(CLASS_MODEL,  'Model',  [modelRef]),
+        makeINST(CLASS_CAMERA, 'Camera', [cameraRef]),
+        makeINST(CLASS_PART,   'Part',   partRefs),
+        propString(CLASS_MODEL,  'Name',         [name]),
+        propString(CLASS_MODEL,  'Description',  [desc]),
+        propString(CLASS_CAMERA, 'Name',         ['ThumbnailCamera']),
+        propFloat( CLASS_CAMERA, 'FieldOfView',  [fov]),
+        propCFrame(CLASS_CAMERA, 'CFrame',       [0], [0], [dist]),
+        propCFrame(CLASS_CAMERA, 'Focus',        [0], [0], [0]),
+        propString( CLASS_PART, 'Name',          pixels.map(function(){ return 'p'; })),
+        propBool(   CLASS_PART, 'Anchored',      pixels.map(function(){ return true; })),
+        propBool(   CLASS_PART, 'CastShadow',    pixels.map(function(){ return false; })),
+        propEnum(   CLASS_PART, 'Material',      pixels.map(function(){ return 256; })),
+        propEnum(   CLASS_PART, 'TopSurface',    pixels.map(function(){ return 0; })),
+        propEnum(   CLASS_PART, 'BottomSurface', pixels.map(function(){ return 0; })),
+        propVector3(CLASS_PART, 'Size',          pixels.map(function(){ return S; }), pixels.map(function(){ return S; }), pixels.map(function(){ return S; })),
+        propCFrame( CLASS_PART, 'CFrame',        posX, posY, posZ),
+        propColor3u8(CLASS_PART,'Color3uint8',   colors),
+        makePRNT(childRefs, parentRefs),
+        makeChunk('END\0', new TextEncoder().encode('</roblox>')),
+      ]);
+    }
+
+    // ── upload ────────────────────────────────────────────────────────────────
+    async function upload(data, isBinary, apiKey, userId, name, desc) {
       var form = new FormData();
       form.append("request", JSON.stringify({
         assetType: "Model",
@@ -124,22 +291,24 @@
         description: desc,
         creationContext: { creator: { userId: String(userId) } }
       }));
-      form.append("fileContent", new Blob([rbxmx], { type: "model/x-rbxm" }), "model.rbxmx");
+      var mimeType = isBinary ? "model/x-rbxm" : "model/x-rbxm";
+      var filename  = isBinary ? "model.rbxm"   : "model.rbxmx";
+      form.append("fileContent", new Blob([data], { type: mimeType }), filename);
       var res = await fetch("https://api.lithium.wtf/roblox/assets/v1/assets", {
         method: "POST",
         headers: { "x-api-key": apiKey },
         body: form
       });
-      var data = await res.json();
-      if (!res.ok) throw new Error("upload failed (" + res.status + "): " + JSON.stringify(data));
-      if (!data.operationId) throw new Error("no operationid: " + JSON.stringify(data));
-      return data.operationId;
+      var json = await res.json();
+      if (!res.ok) throw new Error("upload failed (" + res.status + "): " + JSON.stringify(json));
+      if (!json.operationId) throw new Error("no operationid: " + JSON.stringify(json));
+      return json.operationId;
     }
 
     async function poll(opId, apiKey) {
       for (var i = 0; i < 30; i++) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-        log("polling... attempt " + (i + 1));
+        await new Promise(function(r){ setTimeout(r, 2000); });
+        log("polling... attempt " + (i+1));
         var res = await fetch("https://api.lithium.wtf/roblox/assets/v1/operations/" + opId, {
           headers: { "x-api-key": apiKey }
         });
@@ -153,18 +322,21 @@
       throw new Error("timed out after 60s");
     }
 
+    // ── main ──────────────────────────────────────────────────────────────────
     async function run() {
       clearLog();
       var btn = document.querySelector("button");
       btn.disabled = true;
       try {
-        var apiKey = document.getElementById("apiKey").value.trim();
+        var apiKey    = document.getElementById("apiKey").value.trim();
         var userInput = document.getElementById("userId").value.trim();
-        var name = document.getElementById("modelName").value.trim() || "img";
-        var desc = document.getElementById("modelDesc").value.trim() || "";
+        var name      = document.getElementById("modelName").value.trim() || "img";
+        var desc      = document.getElementById("modelDesc").value.trim() || "";
         var fileInput = document.getElementById("imageFile");
-        if (!apiKey) throw new Error("api key is required");
-        if (!userInput) throw new Error("username or user id is required");
+        var isBinary  = document.getElementById("format").value === "binary";
+
+        if (!apiKey)              throw new Error("api key is required");
+        if (!userInput)           throw new Error("username or user id is required");
         if (!fileInput.files.length) throw new Error("please select a png file");
 
         var userId = await resolveUserId(userInput);
@@ -175,12 +347,14 @@
         log("image: " + img.origW + "x" + img.origH + " -> " + img.scaledW + "x" + img.scaledH);
         log("visible pixels: " + img.pixels.length);
 
-        log("building model...");
-        var rbxmx = buildRbxmx(img.pixels, img.scaledW, img.scaledH, name, desc);
-        log("model size: " + (new Blob([rbxmx]).size / 1024).toFixed(1) + " kb");
+        log("building model (" + (isBinary ? "binary" : "xml") + ")...");
+        var modelData = isBinary
+          ? buildBinary(img.pixels, img.scaledW, img.scaledH, name, desc)
+          : new TextEncoder().encode(buildXml(img.pixels, img.scaledW, img.scaledH, name, desc));
+        log("model size: " + (modelData.length / 1024).toFixed(1) + " kb");
 
         log("uploading...");
-        var opId = await upload(rbxmx, apiKey, userId, name, desc);
+        var opId = await upload(modelData, isBinary, apiKey, userId, name, desc);
         log("uploaded. operation: " + opId);
 
         log("waiting for roblox...");
@@ -196,7 +370,7 @@
         a.textContent = "https://www.roblox.com/library/" + assetId;
         logEl.appendChild(a);
         logEl.appendChild(document.createTextNode("\n"));
-      } catch (e) {
+      } catch(e) {
         log("error: " + e.message);
       } finally {
         btn.disabled = false;
