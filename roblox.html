@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>lithium's image uploader</title>
+</head>
+<body>
+  <h2>lithium's image uploader</h2>
+  <style>input,button{display:block;margin-bottom:3px}</style>
+  <input type="password" id="apiKey" placeholder="* api key" size="50">
+  <input type="text" id="userId" placeholder="* username or user id" size="50">
+  <input type="text" id="modelName" placeholder="model name" size="50">
+  <input type="text" id="modelDesc" placeholder="description" size="50">
+  <input type="file" id="imageFile" accept=".png">
+  <button onclick="run()">upload</button>
+  <br>
+  <pre id="log"></pre>
+
+  <script>
+    var logEl = document.getElementById("log");
+
+    function log(msg) {
+      logEl.appendChild(document.createTextNode(msg + "\n"));
+    }
+
+    function clearLog() {
+      logEl.innerHTML = "";
+    }
+
+    async function resolveUserId(input) {
+      input = input.trim();
+      if (/^\d+$/.test(input)) return input;
+      log("looking up username: " + input + "...");
+      var res = await fetch("https://api.lithium.wtf/roblox/users/v1/usernames/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usernames: [input], excludeBannedUsers: false })
+      });
+      if (!res.ok) throw new Error("username lookup failed: http " + res.status);
+      var data = await res.json();
+      if (!data.data || data.data.length === 0) throw new Error("username not found: " + input);
+      return String(data.data[0].id);
+    }
+
+    function parsePng(arrayBuffer) {
+      return new Promise(function(resolve, reject) {
+        var blob = new Blob([arrayBuffer], { type: "image/png" });
+        var url = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function() {
+          var MAX_DIM = 300;
+          var scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+          var scaledW = Math.round(img.width * scale);
+          var scaledH = Math.round(img.height * scale);
+          var canvas = document.createElement("canvas");
+          canvas.width = scaledW;
+          canvas.height = scaledH;
+          var ctx = canvas.getContext("2d");
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(img, 0, 0, scaledW, scaledH);
+          var d = ctx.getImageData(0, 0, scaledW, scaledH).data;
+          var pixels = [];
+          for (var y = 0; y < scaledH; y++) {
+            for (var x = 0; x < scaledW; x++) {
+              var i = (scaledW * y + x) * 4;
+              if (d[i + 3] > 128) pixels.push({ x: x, y: y, r: d[i], g: d[i+1], b: d[i+2] });
+            }
+          }
+          URL.revokeObjectURL(url);
+          resolve({ pixels: pixels, scaledW: scaledW, scaledH: scaledH, origW: img.width, origH: img.height });
+        };
+        img.onerror = function() { reject(new Error("failed to load image")); };
+        img.src = url;
+      });
+    }
+
+    function buildRbxmx(pixels, scaledW, scaledH, name, desc) {
+      var S = 0.05;
+      var parts = pixels.map(function(px, i) {
+        var posX = (px.x - scaledW / 2) * S;
+        var posY = (-px.y + scaledH / 2) * S;
+        var c32 = (0xFF000000 | (px.r << 16) | (px.g << 8) | px.b) >>> 0;
+        return '<Item class="Part" referent="P' + i + '"><Properties>'
+          + '<string name="Name">p</string>'
+          + '<bool name="Anchored">true</bool>'
+          + '<bool name="CastShadow">false</bool>'
+          + '<token name="Material">256</token>'
+          + '<token name="TopSurface">0</token>'
+          + '<token name="BottomSurface">0</token>'
+          + '<Vector3 name="Size"><X>' + S + '</X><Y>' + S + '</Y><Z>' + S + '</Z></Vector3>'
+          + '<CoordinateFrame name="CFrame"><X>' + posX.toFixed(4) + '</X><Y>' + posY.toFixed(4) + '</Y><Z>0</Z>'
+          + '<R00>1</R00><R01>0</R01><R02>0</R02>'
+          + '<R10>0</R10><R11>1</R11><R12>0</R12>'
+          + '<R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
+          + '<Color3uint8 name="Color3uint8">' + c32 + '</Color3uint8>'
+          + '</Properties></Item>';
+      }).join("");
+      var fov = 70;
+      var dist = (Math.max(scaledW, scaledH) * S / (2 * Math.tan((fov / 2) * Math.PI / 180)) + S * 2).toFixed(4);
+      var cam = '<Item class="Camera" referent="CAM"><Properties>'
+        + '<string name="Name">ThumbnailCamera</string>'
+        + '<float name="FieldOfView">' + fov + '</float>'
+        + '<CoordinateFrame name="CFrame"><X>0</X><Y>0</Y><Z>' + dist + '</Z>'
+        + '<R00>1</R00><R01>0</R01><R02>0</R02>'
+        + '<R10>0</R10><R11>1</R11><R12>0</R12>'
+        + '<R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
+        + '<CoordinateFrame name="Focus"><X>0</X><Y>0</Y><Z>0</Z>'
+        + '<R00>1</R00><R01>0</R01><R02>0</R02>'
+        + '<R10>0</R10><R11>1</R11><R12>0</R12>'
+        + '<R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
+        + '</Properties></Item>';
+      return '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">'
+        + '<Item class="Model" referent="M"><Properties>'
+        + '<string name="Name">' + name + '</string>'
+        + '<string name="Description">' + desc + '</string>'
+        + '</Properties>' + parts + cam + '</Item></roblox>';
+    }
+
+    async function upload(rbxmx, apiKey, userId, name, desc) {
+      var form = new FormData();
+      form.append("request", JSON.stringify({
+        assetType: "Model",
+        displayName: name,
+        description: desc,
+        creationContext: { creator: { userId: String(userId) } }
+      }));
+      form.append("fileContent", new Blob([rbxmx], { type: "model/x-rbxm" }), "model.rbxmx");
+      var res = await fetch("https://api.lithium.wtf/roblox/assets/v1/assets", {
+        method: "POST",
+        headers: { "x-api-key": apiKey },
+        body: form
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error("upload failed (" + res.status + "): " + JSON.stringify(data));
+      if (!data.operationId) throw new Error("no operationid: " + JSON.stringify(data));
+      return data.operationId;
+    }
+
+    async function poll(opId, apiKey) {
+      for (var i = 0; i < 30; i++) {
+        await new Promise(function(r) { setTimeout(r, 2000); });
+        log("polling... attempt " + (i + 1));
+        var res = await fetch("https://api.lithium.wtf/roblox/assets/v1/operations/" + opId, {
+          headers: { "x-api-key": apiKey }
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error("poll failed (" + res.status + "): " + JSON.stringify(data));
+        if (data.done) {
+          if (data.error) throw new Error("operation error: " + JSON.stringify(data.error));
+          return data.response && data.response.assetId;
+        }
+      }
+      throw new Error("timed out after 60s");
+    }
+
+    async function run() {
+      clearLog();
+      var btn = document.querySelector("button");
+      btn.disabled = true;
+      try {
+        var apiKey = document.getElementById("apiKey").value.trim();
+        var userInput = document.getElementById("userId").value.trim();
+        var name = document.getElementById("modelName").value.trim() || "img";
+        var desc = document.getElementById("modelDesc").value.trim() || "";
+        var fileInput = document.getElementById("imageFile");
+        if (!apiKey) throw new Error("api key is required");
+        if (!userInput) throw new Error("username or user id is required");
+        if (!fileInput.files.length) throw new Error("please select a png file");
+
+        var userId = await resolveUserId(userInput);
+        log("user id: " + userId);
+
+        log("parsing png...");
+        var img = await parsePng(await fileInput.files[0].arrayBuffer());
+        log("image: " + img.origW + "x" + img.origH + " -> " + img.scaledW + "x" + img.scaledH);
+        log("visible pixels: " + img.pixels.length);
+
+        log("building model...");
+        var rbxmx = buildRbxmx(img.pixels, img.scaledW, img.scaledH, name, desc);
+        log("model size: " + (new Blob([rbxmx]).size / 1024).toFixed(1) + " kb");
+
+        log("uploading...");
+        var opId = await upload(rbxmx, apiKey, userId, name, desc);
+        log("uploaded. operation: " + opId);
+
+        log("waiting for roblox...");
+        var assetId = await poll(opId, apiKey);
+
+        log("");
+        log("done!");
+        log("asset id: " + assetId);
+        logEl.appendChild(document.createTextNode("url: "));
+        var a = document.createElement("a");
+        a.href = "https://www.roblox.com/library/" + assetId;
+        a.target = "_blank";
+        a.textContent = "https://www.roblox.com/library/" + assetId;
+        logEl.appendChild(a);
+        logEl.appendChild(document.createTextNode("\n"));
+      } catch (e) {
+        log("error: " + e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
