@@ -64,7 +64,7 @@
         if (/^\d+$/.test(input)) return input;
         var key = input.toLowerCase();
         if (usernameCache[key]) {
-          log("found in cache: " + usernameCache[key]);
+          log("found in cache!);
           return usernameCache[key];
         }
         log("looking up username: " + input + "...");
@@ -120,7 +120,7 @@
             + '<string name="Name">p</string>'
             + '<bool name="Anchored">true</bool>'
             + '<bool name="CastShadow">false</bool>'
-            + '<token name="Material">256</token>'
+            + '<token name="Material">272</token>'
             + '<token name="TopSurface">0</token>'
             + '<token name="BottomSurface">0</token>'
             + '<Vector3 name="Size"><X>' + S + '</X><Y>' + S + '</Y><Z>' + S + '</Z></Vector3>'
@@ -252,7 +252,7 @@
           propString( 2, 'Name',         pixels.map(function(){ return 'p'; })),
           propBool(   2, 'Anchored',     pixels.map(function(){ return true; })),
           propBool(   2, 'CastShadow',   pixels.map(function(){ return false; })),
-          propEnum(   2, 'Material',     pixels.map(function(){ return 256; })),
+          propEnum(   2, 'Material',     pixels.map(function(){ return 272; })),
           propEnum(   2, 'TopSurface',   pixels.map(function(){ return 0; })),
           propEnum(   2, 'BottomSurface',pixels.map(function(){ return 0; })),
           propVector3(2, 'Size',         pixels.map(function(){ return S; }), pixels.map(function(){ return S; }), pixels.map(function(){ return S; })),
