@@ -121,8 +121,6 @@
             + '<bool name="Anchored">true</bool>'
             + '<bool name="CastShadow">false</bool>'
             + '<token name="Material">272</token>'
-            + '<token name="TopSurface">0</token>'
-            + '<token name="BottomSurface">0</token>'
             + '<Vector3 name="Size"><X>' + S + '</X><Y>' + S + '</Y><Z>' + S + '</Z></Vector3>'
             + '<CoordinateFrame name="CFrame"><X>' + posX.toFixed(4) + '</X><Y>' + posY.toFixed(4) + '</Y><Z>0</Z>'
             + '<R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
@@ -253,8 +251,6 @@
           propBool(   2, 'Anchored',     pixels.map(function(){ return true; })),
           propBool(   2, 'CastShadow',   pixels.map(function(){ return false; })),
           propEnum(   2, 'Material',     pixels.map(function(){ return 272; })),
-          propEnum(   2, 'TopSurface',   pixels.map(function(){ return 0; })),
-          propEnum(   2, 'BottomSurface',pixels.map(function(){ return 0; })),
           propVector3(2, 'Size',         pixels.map(function(){ return S; }), pixels.map(function(){ return S; }), pixels.map(function(){ return S; })),
           propCFrame( 2, 'CFrame',       posX, posY, posZ),
           propColor3u8(2,'Color3uint8',  colors),
