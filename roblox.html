@@ -64,7 +64,7 @@
         if (/^\d+$/.test(input)) return input;
         var key = input.toLowerCase();
         if (usernameCache[key]) {
-          log("found in cache!);
+          log("found in cache!");
           return usernameCache[key];
         }
         log("looking up username: " + input + "...");
