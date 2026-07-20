@@ -8,10 +8,15 @@ var saveCredsCheckbox = document.getElementById("saveCreds");
 var saveCredsLabel = document.getElementById("saveCredsLabel");
 var accountSelect = document.getElementById("accountSelect");
 
-var formFont = getComputedStyle(apiKeyInput);
-saveCredsLabel.style.fontFamily = formFont.fontFamily;
-saveCredsLabel.style.fontSize = formFont.fontSize;
-saveCredsLabel.style.fontWeight = formFont.fontWeight;
+function matchFormFont() {
+  var formFont = getComputedStyle(apiKeyInput);
+  saveCredsLabel.style.fontFamily = formFont.fontFamily;
+  saveCredsLabel.style.fontSize = formFont.fontSize;
+  saveCredsLabel.style.fontWeight = formFont.fontWeight;
+}
+matchFormFont();
+window.addEventListener("load", matchFormFont);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(matchFormFont);
 
 var savedAccounts = {};
 try { var storedAccounts = localStorage.getItem("savedAccounts"); if (storedAccounts) savedAccounts = JSON.parse(storedAccounts); } catch(e) {}
