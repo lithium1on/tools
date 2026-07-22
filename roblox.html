@@ -196,10 +196,14 @@ function parsePng(arrayBuffer) {
       ctx.drawImage(img, 0, 0, scaledW, scaledH);
       var d = ctx.getImageData(0, 0, scaledW, scaledH).data;
       var pixels = [];
+      // Full transparency support: keep every pixel with any non-zero alpha
+      // (not just alpha > 128) and carry the alpha value through so the
+      // exporter can set a per-part Transparency value instead of a hard cutoff.
       for (var y = 0; y < scaledH; y++)
         for (var x = 0; x < scaledW; x++) {
           var i = (scaledW * y + x) * 4;
-          if (d[i+3] > 128) pixels.push({ x:x, y:y, r:d[i], g:d[i+1], b:d[i+2] });
+          var a = d[i+3];
+          if (a > 0) pixels.push({ x:x, y:y, r:d[i], g:d[i+1], b:d[i+2], a:a });
         }
       URL.revokeObjectURL(url);
       resolve({ pixels:pixels, scaledW:scaledW, scaledH:scaledH, origW:img.width, origH:img.height });
@@ -215,6 +219,7 @@ function buildXml(pixels, scaledW, scaledH, name, desc) {
     var posX = (px.x - scaledW / 2) * S;
     var posY = (-px.y + scaledH / 2) * S;
     var c32 = (0xFF000000 | (px.r << 16) | (px.g << 8) | px.b) >>> 0;
+    var transparency = (1 - px.a / 255).toFixed(4);
     return '<Item class="Part" referent="P' + i + '"><Properties>'
       + '<string name="Name">p</string>'
       + '<bool name="Anchored">true</bool>'
@@ -222,6 +227,7 @@ function buildXml(pixels, scaledW, scaledH, name, desc) {
       + '<token name="Material">272</token>'
       + '<token name="TopSurface">0</token>'
       + '<token name="BottomSurface">0</token>'
+      + '<float name="Transparency">' + transparency + '</float>'
       + '<Vector3 name="Size"><X>' + S + '</X><Y>' + S + '</Y><Z>' + S + '</Z></Vector3>'
       + '<CoordinateFrame name="CFrame"><X>' + posX.toFixed(4) + '</X><Y>' + posY.toFixed(4) + '</Y><Z>0</Z>'
       + '<R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
@@ -334,6 +340,9 @@ function buildBinary(pixels, scaledW, scaledH, name, desc) {
   var posY = pixels.map(function(px){ return (-px.y + scaledH/2) * S; });
   var posZ = pixels.map(function(){ return 0; });
   var colors = pixels.map(function(px){ return { r:px.r, g:px.g, b:px.b }; });
+  // Full transparency support: derive a per-part Transparency float from
+  // the source alpha channel instead of treating pixels as fully opaque.
+  var transparencies = pixels.map(function(px){ return 1 - px.a / 255; });
   var childRefs = partRefs.concat([1, 0]);
   var parentRefs = partRefs.map(function(){ return 0; }).concat([0, -1]);
   var magic = new Uint8Array([0x3c,0x72,0x6f,0x62,0x6c,0x6f,0x78,0x21,0x89,0xff,0x0d,0x0a,0x1a,0x0a]);
@@ -354,6 +363,7 @@ function buildBinary(pixels, scaledW, scaledH, name, desc) {
     propEnum(   2, 'Material',     pixels.map(function(){ return 272; })),
     propEnum(   2, 'TopSurface',   pixels.map(function(){ return 0; })),
     propEnum(   2, 'BottomSurface',pixels.map(function(){ return 0; })),
+    propFloat(  2, 'Transparency', transparencies),
     propVector3(2, 'Size',         pixels.map(function(){ return S; }), pixels.map(function(){ return S; }), pixels.map(function(){ return S; })),
     propCFrame( 2, 'CFrame',       posX, posY, posZ),
     propColor3u8(2,'Color3uint8',  colors),
