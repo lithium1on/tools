@@ -48,11 +48,12 @@
     </label>
     <input type="text" id="modelName" placeholder="model name" size="40">
     <input type="text" id="modelDesc" placeholder="description" size="40">
-    <select id="format">
-      <option value="binary">binary - slower, recommended</option>
-      <option value="xml">xml - fast processing, big file</option>
+    <select id="quality">
+      <option value="360">higher quality - 360p</option>
+      <option value="240" selected>medium quality - 240p</option>
+      <option value="180">low quality - 180p</option>
     </select>
-    <input type="file" id="imageFile" accept=".png">
+    <input type="file" id="imageFile" accept="image/*">
     <button onclick="run()" style="cursor:pointer">upload</button>
     <br>
     <pre id="log"></pre>
@@ -176,14 +177,13 @@ async function resolveUserId(input) {
   return usernameCache[key];
 }
 
-function parsePng(arrayBuffer) {
+function parseImage(arrayBuffer) {
   return new Promise(function(resolve, reject) {
-    var blob = new Blob([arrayBuffer], { type: "image/png" });
+    var blob = new Blob([arrayBuffer]);
     var url = URL.createObjectURL(blob);
     var img = new Image();
     img.onload = function() {
-      var isBinaryMode = document.getElementById("format").value === "binary";
-      var MAX_DIM = isBinaryMode ? 360 : 240;
+      var MAX_DIM = parseInt(document.getElementById("quality").value, 10);
       var scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
       var scaledW = Math.round(img.width * scale);
       var scaledH = Math.round(img.height * scale);
@@ -211,42 +211,6 @@ function parsePng(arrayBuffer) {
     img.onerror = function() { reject(new Error("failed to load image")); };
     img.src = url;
   });
-}
-
-function buildXml(pixels, scaledW, scaledH, name, desc) {
-  var S = 0.05;
-  var parts = pixels.map(function(px, i) {
-    var posX = (px.x - scaledW / 2) * S;
-    var posY = (-px.y + scaledH / 2) * S;
-    var c32 = (0xFF000000 | (px.r << 16) | (px.g << 8) | px.b) >>> 0;
-    var transparency = (1 - px.a / 255).toFixed(4);
-    return '<Item class="Part" referent="P' + i + '"><Properties>'
-      + '<string name="Name">p</string>'
-      + '<bool name="Anchored">true</bool>'
-      + '<bool name="CastShadow">false</bool>'
-      + '<token name="Material">272</token>'
-      + '<token name="TopSurface">0</token>'
-      + '<token name="BottomSurface">0</token>'
-      + '<float name="Transparency">' + transparency + '</float>'
-      + '<Vector3 name="Size"><X>' + S + '</X><Y>' + S + '</Y><Z>' + S + '</Z></Vector3>'
-      + '<CoordinateFrame name="CFrame"><X>' + posX.toFixed(4) + '</X><Y>' + posY.toFixed(4) + '</Y><Z>0</Z>'
-      + '<R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
-      + '<Color3uint8 name="Color3uint8">' + c32 + '</Color3uint8>'
-      + '</Properties></Item>';
-  }).join("");
-  var fov = 70;
-  var dist = (Math.max(scaledW, scaledH) * S / (2 * Math.tan((fov/2) * Math.PI / 180)) + S * 2).toFixed(4);
-  var cam = '<Item class="Camera" referent="CAM"><Properties>'
-    + '<string name="Name">ThumbnailCamera</string>'
-    + '<float name="FieldOfView">' + fov + '</float>'
-    + '<CoordinateFrame name="CFrame"><X>0</X><Y>0</Y><Z>' + dist + '</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
-    + '<CoordinateFrame name="Focus"><X>0</X><Y>0</Y><Z>0</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>'
-    + '</Properties></Item>';
-  return '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">'
-    + '<Item class="Model" referent="M"><Properties>'
-    + '<string name="Name">' + name + '</string>'
-    + '<string name="Description">' + desc + '</string>'
-    + '</Properties>' + parts + cam + '</Item></roblox>';
 }
 
 function buildBinary(pixels, scaledW, scaledH, name, desc) {
@@ -372,13 +336,13 @@ function buildBinary(pixels, scaledW, scaledH, name, desc) {
   ]);
 }
 
-async function upload(data, isBinary, apiKey, userId, name, desc) {
+async function upload(data, apiKey, userId, name, desc) {
   var form = new FormData();
   form.append("request", JSON.stringify({
     assetType: "Model", displayName: name, description: desc,
     creationContext: { creator: { userId: String(userId) } }
   }));
-  form.append("fileContent", new Blob([data], { type: "model/x-rbxm" }), isBinary ? "model.rbxm" : "model.rbxmx");
+  form.append("fileContent", new Blob([data], { type: "model/x-rbxm" }), "model.rbxm");
   var res = await fetch("https://api.lithium.wtf/roblox/assets/v1/assets", {
     method: "POST", headers: { "x-api-key": apiKey }, body: form
   });
@@ -415,10 +379,9 @@ async function run() {
     var name      = document.getElementById("modelName").value.trim() || "img";
     var desc      = document.getElementById("modelDesc").value.trim() || "";
     var fileInput = document.getElementById("imageFile");
-    var isBinary  = document.getElementById("format").value === "binary";
     if (!apiKey)                 throw new Error("api key is required");
     if (!userInput)              throw new Error("username or user id is required");
-    if (!fileInput.files.length) throw new Error("please select a png file");
+    if (!fileInput.files.length) throw new Error("please select an image file");
     if (saveCredsCheckbox.checked && accountSelect.style.display === "none") {
       savedAccounts[userInput] = { apiKey: apiKey, userId: userInput };
       persistAccounts();
@@ -426,17 +389,15 @@ async function run() {
     }
     var userId = await resolveUserId(userInput);
     log("user id: " + userId);
-    log("parsing png...");
-    var img = await parsePng(await fileInput.files[0].arrayBuffer());
+    log("parsing image...");
+    var img = await parseImage(await fileInput.files[0].arrayBuffer());
     log("image: " + img.origW + "x" + img.origH + " -> " + img.scaledW + "x" + img.scaledH);
     log("visible pixels: " + img.pixels.length);
-    log("building model (" + (isBinary ? "binary" : "xml") + ")...");
-    var modelData = isBinary
-      ? buildBinary(img.pixels, img.scaledW, img.scaledH, name, desc)
-      : new TextEncoder().encode(buildXml(img.pixels, img.scaledW, img.scaledH, name, desc));
+    log("building model...");
+    var modelData = buildBinary(img.pixels, img.scaledW, img.scaledH, name, desc);
     log("model size: " + (modelData.length / 1024).toFixed(1) + " kb");
     log("uploading...");
-    var opId = await upload(modelData, isBinary, apiKey, userId, name, desc);
+    var opId = await upload(modelData, apiKey, userId, name, desc);
     log("uploaded. operation: " + opId);
     log("waiting for roblox...");
     var assetId = await poll(opId, apiKey);
