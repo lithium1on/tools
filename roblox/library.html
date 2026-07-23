@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lithium's tools - library</title>
+  <link rel="icon" href="https://lithium.wtf/assets/img/icon.png">
+  <meta property="theme-color" content="#696969">
+  <style>
+    h1 { font-size: 3rem; margin: 0rem 0; }
+    h2 { font-size: 1.5rem; margin: 0.3rem 0; }
+    p { margin: 0.2rem 0; }
+    #grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    #grid img {
+      width: 96px; height: 96px; object-fit: contain;
+      background: #1a1a1a; border: 1px solid #555; cursor: pointer;
+    }
+    #grid img.copied { border-color: #6c6; }
+  </style>
+</head>
+<body>
+<header>
+  <section id="title">
+    <h1>lithium's tools</h1>
+  </section>
+  <nav>
+    <a href="/">home</a> |
+    <a href="/roblox/help">help</a>
+  </nav>
+  <hr>
+</header>
+<main>
+  <section id="library">
+    <h2>library <span id="accountLabel" style="color:gray;font-size:1rem"></span></h2>
+    <p>click an image to copy its asset id</p>
+    <div id="grid"></div>
+    <pre id="log"></pre>
+  </section>
+</main>
+<script>
+var logEl = document.getElementById("log");
+function log(msg) { logEl.appendChild(document.createTextNode(msg + "\n")); }
+
+var gridEl = document.getElementById("grid");
+var accountLabel = document.getElementById("accountLabel");
+
+var params = new URLSearchParams(location.search);
+var account = params.get("account");
+
+if (!account) {
+  log("no account specified. go back and use the library button from the uploader.");
+} else {
+  accountLabel.textContent = "(" + account + ")";
+  run(account);
+}
+
+function copyToClipboard(text, imgEl) {
+  navigator.clipboard.writeText(text).then(function() {
+    imgEl.classList.add("copied");
+    setTimeout(function() { imgEl.classList.remove("copied"); }, 400);
+    log("copied " + text);
+  }).catch(function(e) {
+    log("couldn't copy: " + e.message);
+  });
+}
+
+function addThumbnail(assetId, imageUrl) {
+  var img = document.createElement("img");
+  img.src = imageUrl;
+  img.title = assetId;
+  img.alt = assetId;
+  img.addEventListener("click", function() { copyToClipboard(assetId, img); });
+  gridEl.appendChild(img);
+}
+
+async function getAccountCreds(name) {
+  var savedAccounts = {};
+  try { var stored = localStorage.getItem("savedAccounts"); if (stored) savedAccounts = JSON.parse(stored); } catch(e) {}
+  return savedAccounts[name] || null;
+}
+
+function getLibraryIds(userId) {
+  var list = [];
+  try { var stored = localStorage.getItem("library:" + userId); if (stored) list = JSON.parse(stored); } catch(e) {}
+  return list;
+}
+
+async function fetchAssetInfo(assetId, apiKey) {
+  var res = await fetch("https://api.lithium.wtf/roblox/assets/v1/assets/" + assetId, {
+    headers: { "x-api-key": apiKey }
+  });
+  if (!res.ok) throw new Error("http " + res.status);
+  return res.json();
+}
+
+async function fetchThumbnails(assetIds) {
+  var results = {};
+  var CHUNK = 100;
+  for (var i = 0; i < assetIds.length; i += CHUNK) {
+    var chunk = assetIds.slice(i, i + CHUNK);
+    var url = "https://api.lithium.wtf/roblox/thumbnails/v1/assets?assetIds="
+      + chunk.join(",") + "&size=150x150&format=Png&isCircular=false";
+    var res = await fetch(url);
+    if (!res.ok) { log("thumbnail batch failed: http " + res.status); continue; }
+    var data = await res.json();
+    (data.data || []).forEach(function(item) {
+      results[String(item.targetId)] = item;
+    });
+  }
+  return results;
+}
+
+async function run(accountName) {
+  var acc = await getAccountCreds(accountName);
+  if (!acc) {
+    log("no saved credentials found for \"" + accountName + "\". go back to the uploader and save credentials for this account first.");
+    return;
+  }
+  var ids = getLibraryIds(acc.userId);
+  if (!ids.length) {
+    log("no uploads recorded locally for this account yet. uploads made from this browser will show up here.");
+    return;
+  }
+  log("checking " + ids.length + " tracked upload(s)...");
+  var matched = [];
+  for (var i = 0; i < ids.length; i++) {
+    try {
+      var info = await fetchAssetInfo(ids[i], acc.apiKey);
+      if (info.displayName === "img" && info.description === "generated using lithium's tools") {
+        matched.push(ids[i]);
+      }
+    } catch (e) {
+      log("skipping " + ids[i] + ": " + e.message);
+    }
+  }
+  if (!matched.length) {
+    log("no matching models found.");
+    return;
+  }
+  log("fetching thumbnails for " + matched.length + " model(s)...");
+  var thumbs = await fetchThumbnails(matched);
+  matched.forEach(function(id) {
+    var t = thumbs[id];
+    if (t && t.state === "Completed" && t.imageUrl) {
+      addThumbnail(id, t.imageUrl);
+    } else {
+      log("thumbnail not ready for " + id + (t ? " (" + t.state + ")" : ""));
+    }
+  });
+  log("done.");
+}
+</script>
+</body>
+</html>

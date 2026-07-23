@@ -39,23 +39,23 @@
     <div style="display:flex;align-items:center">
       <input type="password" id="apiKey" placeholder="* api key" size="40">
       <select id="accountSelect" style="display:none"></select>
-      <button onclick="location.href='/roblox-help'" style="margin-left:3px;width:21px;height:21px;padding:0;cursor:pointer">?</button>
+      <button onclick="location.href='/roblox/help'" style="margin-left:3px;width:21px;height:21px;padding:0;cursor:pointer">?</button>
     </div>
     <input type="text" id="userId" placeholder="* username or user id" size="40">
     <label id="saveCredsLabel" style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
       <input type="checkbox" id="saveCreds" style="display:inline;margin:0;width:auto">
       save credentials
     </label>
-    <input type="text" id="modelName" placeholder="model name" size="40">
-    <input type="text" id="modelDesc" placeholder="description" size="40">
     <select id="quality">
-      <option value="400">higher quality - 400p</option>
-      <option value="360" selected>high quality - 360p</option>
-      <option value="240">medium quality - 240p</option>
+      <option value="360">higher quality - 360p</option>
+      <option value="240" selected>medium quality - 240p</option>
       <option value="180">low quality - 180p</option>
     </select>
     <input type="file" id="imageFile" accept="image/*">
-    <button onclick="run()" style="cursor:pointer">upload</button>
+    <div style="display:flex;gap:3px">
+      <button onclick="run()" style="cursor:pointer">upload</button>
+      <button onclick="goToLibrary()" style="cursor:pointer">library</button>
+    </div>
     <br>
     <pre id="log"></pre>
     <script>
@@ -131,8 +131,12 @@ saveCredsCheckbox.addEventListener("change", function() {
     var apiKeyVal = apiKeyInput.value.trim();
     var userVal = userIdInput.value.trim();
     if (apiKeyVal && userVal) {
-      savedAccounts[userVal] = { apiKey: apiKeyVal, userId: userVal };
-      persistAccounts();
+      resolveUserId(userVal).then(function(resolvedId) {
+        savedAccounts[userVal] = { apiKey: apiKeyVal, userId: resolvedId };
+        persistAccounts();
+      }).catch(function(e) {
+        log("couldn't resolve user id: " + e.message);
+      });
     }
     if (Object.keys(savedAccounts).length > 0) {
       showAccountDropdown(userVal && savedAccounts[userVal] ? userVal : Object.keys(savedAccounts)[0]);
@@ -197,17 +201,34 @@ function parseImage(arrayBuffer) {
       ctx.drawImage(img, 0, 0, scaledW, scaledH);
       var d = ctx.getImageData(0, 0, scaledW, scaledH).data;
       var pixels = [];
-      // Full transparency support: keep every pixel with any non-zero alpha
-      // (not just alpha > 128) and carry the alpha value through so the
-      // exporter can set a per-part Transparency value instead of a hard cutoff.
+      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      // Full transparency support: keep any meaningfully-visible pixel and carry
+      // its alpha through so the exporter can set a per-part Transparency value
+      // instead of a hard opaque/invisible cutoff. MIN_ALPHA filters out the
+      // near-zero-alpha noise that image resizing/anti-aliasing leaves along
+      // edges — without it that noise still counts as "visible" and shows up
+      // as a faint border line of almost-transparent parts.
+      var MIN_ALPHA = 12;
       for (var y = 0; y < scaledH; y++)
         for (var x = 0; x < scaledW; x++) {
           var i = (scaledW * y + x) * 4;
           var a = d[i+3];
-          if (a > 0) pixels.push({ x:x, y:y, r:d[i], g:d[i+1], b:d[i+2], a:a });
+          if (a > MIN_ALPHA) {
+            pixels.push({ x:x, y:y, r:d[i], g:d[i+1], b:d[i+2], a:a });
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
         }
       URL.revokeObjectURL(url);
-      resolve({ pixels:pixels, scaledW:scaledW, scaledH:scaledH, origW:img.width, origH:img.height });
+      if (!pixels.length) { reject(new Error("image has no visible content")); return; }
+      // Center on the actual visible content, not the full (possibly padded) canvas.
+      var centerX = (minX + maxX + 1) / 2;
+      var centerY = (minY + maxY + 1) / 2;
+      var contentW = maxX - minX + 1;
+      var contentH = maxY - minY + 1;
+      resolve({ pixels:pixels, scaledW:scaledW, scaledH:scaledH, contentW:contentW, contentH:contentH, centerX:centerX, centerY:centerY, origW:img.width, origH:img.height });
     };
     img.onerror = function() { reject(new Error("failed to load image")); };
     img.src = url;
@@ -370,6 +391,22 @@ async function poll(opId, apiKey) {
   throw new Error("timed out after 60s");
 }
 
+function saveLibraryEntry(userId, assetId) {
+  var key = "library:" + userId;
+  var list = [];
+  try { var stored = localStorage.getItem(key); if (stored) list = JSON.parse(stored); } catch(e) {}
+  if (list.indexOf(String(assetId)) === -1) list.push(String(assetId));
+  try { localStorage.setItem(key, JSON.stringify(list)); } catch(e) {}
+}
+
+function goToLibrary() {
+  var account = (accountSelect.style.display !== "none" && accountSelect.value !== "__new__")
+    ? accountSelect.value
+    : userIdInput.value.trim();
+  if (!account) { log("select or enter an account first"); return; }
+  location.href = "/roblox/library?account=" + encodeURIComponent(account);
+}
+
 async function run() {
   clearLog();
   var btn = document.querySelectorAll("button")[1];
@@ -377,18 +414,18 @@ async function run() {
   try {
     var apiKey    = document.getElementById("apiKey").value.trim();
     var userInput = document.getElementById("userId").value.trim();
-    var name      = document.getElementById("modelName").value.trim() || "img";
-    var desc      = document.getElementById("modelDesc").value.trim() || "";
+    var name      = "img";
+    var desc      = "generated using lithium's tools";
     var fileInput = document.getElementById("imageFile");
     if (!apiKey)                 throw new Error("api key is required");
     if (!userInput)              throw new Error("username or user id is required");
     if (!fileInput.files.length) throw new Error("please select an image file");
+    var userId = await resolveUserId(userInput);
     if (saveCredsCheckbox.checked && accountSelect.style.display === "none") {
-      savedAccounts[userInput] = { apiKey: apiKey, userId: userInput };
+      savedAccounts[userInput] = { apiKey: apiKey, userId: userId };
       persistAccounts();
       showAccountDropdown(userInput);
     }
-    var userId = await resolveUserId(userInput);
     log("user id: " + userId);
     log("parsing image...");
     var img = await parseImage(await fileInput.files[0].arrayBuffer());
@@ -405,6 +442,7 @@ async function run() {
     log("");
     log("done!");
     log("asset id: " + assetId);
+    saveLibraryEntry(userId, assetId);
     logEl.appendChild(document.createTextNode("url: "));
     var a = document.createElement("a");
     a.href = "https://www.roblox.com/library/" + assetId;
