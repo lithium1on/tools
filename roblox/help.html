@@ -35,7 +35,7 @@
     <section id="method1">
 		<h2>method 1</h2>
 		<p>drag this in your bookmarks bar to get an api key and run it on the roblox website:</p>
-		<a href='javascript:(async()=>{try{const n="lithiumtools-"+Math.random().toString(36).slice(2,8),u="https://apis.roblox.com/cloud-authentication/v1/apiKey",g=await fetch(u,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-TOKEN":""},body:"{}"}),t=g.headers.get("x-csrf-token");if(!t)throw Error("CSRF token not found");const r=await fetch(u,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-TOKEN":t},body:JSON.stringify({cloudAuthUserConfiguredProperties:{name:n,description:"",isEnabled:true,allowedCidrs:["0.0.0.0/0"],scopes:[{scopeType:"asset",targetParts:["*"],operations:["write","read"]}]}})}),d=await r.json();if(!r.ok)throw Error(d.message||JSON.stringify(d));const k=d.apikeySecret||d.apiKey||d.secret||d.key||d.value||JSON.stringify(d);await navigator.clipboard.writeText(k);alert("api key copied to clipboard!");}catch(e){alert(e.message)}})();'>
+		<a href='javascript:(async()=>{try{const n="lithiumtools-"+Math.random().toString(36).slice(2,8),u="https://apis.roblox.com/cloud-authentication/v1/apiKey",g=await fetch(u,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-TOKEN":""},body:"{}"}),t=g.headers.get("x-csrf-token");if(!t)throw Error("CSRF token not found");const r=await fetch(u,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-TOKEN":t},body:JSON.stringify({cloudAuthUserConfiguredProperties:{name:n,description:"",isEnabled:true,allowedCidrs:["0.0.0.0/0"],scopes:[{scopeType:"asset",targetParts:["*"],operations:["write"]}]}})}),d=await r.json();if(!r.ok)throw Error(d.message||JSON.stringify(d));const k=d.apikeySecret||d.apiKey||d.secret||d.key||d.value||JSON.stringify(d);await navigator.clipboard.writeText(k);alert("api key copied to clipboard!");}catch(e){alert(e.message)}})();'>
 			lithium's tools
 		</a>
 		<li><span>note: if you dont see your bookmarks bar, hit Ctrl + Shift + B to open it.</li></span>
@@ -65,7 +65,7 @@
 		<li>
 		  <p>step 4:</p>
           <a>enter the access permissions</a>
-          <br><span>we require only 2 permissions, select "assets" then select "write" and "read" in "Select Operation to Add"</span>
+          <br><span>we require only 2 permissions, select "assets" then select "write" in "Select Operation to Add"</span>
         </li>
 		<h2></h2>
 		<li>
