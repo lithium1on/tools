@@ -118,6 +118,35 @@ async function fetchThumbnails(assetIds) {
   return results;
 }
 
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+async function loadThumbnails(assetIds) {
+  var pending = assetIds.slice();
+  var MAX_ATTEMPTS = 15;
+  for (var attempt = 1; attempt <= MAX_ATTEMPTS && pending.length; attempt++) {
+    var thumbs = await fetchThumbnails(pending);
+    var stillPending = [];
+    pending.forEach(function(id) {
+      var t = thumbs[id];
+      if (t && t.state === "Completed" && t.imageUrl) {
+        addThumbnail(id, t.imageUrl);
+      } else if (t && t.state === "Error") {
+        log("thumbnail errored for " + id);
+      } else {
+        stillPending.push(id);
+      }
+    });
+    pending = stillPending;
+    if (pending.length && attempt < MAX_ATTEMPTS) {
+      log("waiting on " + pending.length + " thumbnail(s) to render, retrying...");
+      await sleep(2000);
+    }
+  }
+  if (pending.length) {
+    log(pending.length + " thumbnail(s) still not ready after retrying, refresh the page later to check again.");
+  }
+}
+
 async function run(accountName) {
   var acc = await getAccountCreds(accountName);
   if (!acc) {
@@ -146,17 +175,10 @@ async function run(accountName) {
     return;
   }
   log("fetching thumbnails for " + matched.length + " model(s)...");
-  var thumbs = await fetchThumbnails(matched);
-  matched.forEach(function(id) {
-    var t = thumbs[id];
-    if (t && t.state === "Completed" && t.imageUrl) {
-      addThumbnail(id, t.imageUrl);
-    } else {
-      log("thumbnail not ready for " + id + (t ? " (" + t.state + ")" : ""));
-    }
-  });
+  await loadThumbnails(matched);
   log("done.");
 }
 </script>
 </body>
+
 </html>
