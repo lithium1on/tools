@@ -392,14 +392,6 @@ async function poll(opId, apiKey) {
   throw new Error("timed out after 60s");
 }
 
-function saveLibraryEntry(userId, assetId) {
-  var key = "library:" + userId;
-  var list = [];
-  try { var stored = localStorage.getItem(key); if (stored) list = JSON.parse(stored); } catch(e) {}
-  if (list.indexOf(String(assetId)) === -1) list.push(String(assetId));
-  try { localStorage.setItem(key, JSON.stringify(list)); } catch(e) {}
-}
-
 function goToLibrary() {
   var account = (accountSelect.style.display !== "none" && accountSelect.value !== "__new__")
     ? accountSelect.value
@@ -443,7 +435,6 @@ async function run() {
     log("");
     log("done!");
     log("asset id: " + assetId);
-    saveLibraryEntry(userId, assetId);
     logEl.appendChild(document.createTextNode("url: "));
     var a = document.createElement("a");
     a.href = "https://www.roblox.com/library/" + assetId;
