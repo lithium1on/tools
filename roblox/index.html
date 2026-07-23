@@ -81,15 +81,27 @@ matchFormFont();
 window.addEventListener("load", matchFormFont);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(matchFormFont);
 
+// apiKeyInput gets display:none once the account dropdown is shown, and a
+// hidden element's offsetWidth is 0 — so we cache the width once while it's
+// still visible instead of re-measuring it live (which caused the quality
+// dropdown to collapse to 0 after the first frame).
+var cachedInputWidth = apiKeyInput.offsetWidth;
+
 function styleQualitySelect() {
-  qualitySelect.style.width = apiKeyInput.offsetWidth + "px";
+  qualitySelect.style.width = cachedInputWidth + "px";
   qualitySelect.style.height = "21px";
   qualitySelect.style.boxSizing = "border-box";
   qualitySelect.style.padding = "0 2px";
 }
 styleQualitySelect();
-window.addEventListener("load", styleQualitySelect);
-window.addEventListener("resize", styleQualitySelect);
+window.addEventListener("load", function() {
+  if (apiKeyInput.offsetWidth > 0) cachedInputWidth = apiKeyInput.offsetWidth;
+  styleQualitySelect();
+});
+window.addEventListener("resize", function() {
+  if (apiKeyInput.offsetWidth > 0) cachedInputWidth = apiKeyInput.offsetWidth;
+  styleQualitySelect();
+});
 
 var savedAccounts = {};
 try { var storedAccounts = localStorage.getItem("savedAccounts"); if (storedAccounts) savedAccounts = JSON.parse(storedAccounts); } catch(e) {}
@@ -122,7 +134,8 @@ function applyAccount(name) {
 
 function showAccountDropdown(selected) {
   buildAccountOptions(selected);
-  accountSelect.style.width = apiKeyInput.offsetWidth + "px";
+  if (apiKeyInput.offsetWidth > 0) cachedInputWidth = apiKeyInput.offsetWidth;
+  accountSelect.style.width = cachedInputWidth + "px";
   accountSelect.style.height = "21px";
   accountSelect.style.boxSizing = "border-box";
   accountSelect.style.padding = "0 2px";
