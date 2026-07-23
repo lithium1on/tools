@@ -69,6 +69,7 @@ var userIdInput = document.getElementById("userId");
 var saveCredsCheckbox = document.getElementById("saveCreds");
 var saveCredsLabel = document.getElementById("saveCredsLabel");
 var accountSelect = document.getElementById("accountSelect");
+var qualitySelect = document.getElementById("quality");
 
 function matchFormFont() {
   var formFont = getComputedStyle(apiKeyInput);
@@ -79,6 +80,16 @@ function matchFormFont() {
 matchFormFont();
 window.addEventListener("load", matchFormFont);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(matchFormFont);
+
+function styleQualitySelect() {
+  qualitySelect.style.width = apiKeyInput.offsetWidth + "px";
+  qualitySelect.style.height = "21px";
+  qualitySelect.style.boxSizing = "border-box";
+  qualitySelect.style.padding = "0 2px";
+}
+styleQualitySelect();
+window.addEventListener("load", styleQualitySelect);
+window.addEventListener("resize", styleQualitySelect);
 
 var savedAccounts = {};
 try { var storedAccounts = localStorage.getItem("savedAccounts"); if (storedAccounts) savedAccounts = JSON.parse(storedAccounts); } catch(e) {}
@@ -203,12 +214,6 @@ function parseImage(arrayBuffer) {
       var d = ctx.getImageData(0, 0, scaledW, scaledH).data;
       var pixels = [];
       var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      // Full transparency support: keep any meaningfully-visible pixel and carry
-      // its alpha through so the exporter can set a per-part Transparency value
-      // instead of a hard opaque/invisible cutoff. MIN_ALPHA filters out the
-      // near-zero-alpha noise that image resizing/anti-aliasing leaves along
-      // edges — without it that noise still counts as "visible" and shows up
-      // as a faint border line of almost-transparent parts.
       var MIN_ALPHA = 12;
       for (var y = 0; y < scaledH; y++)
         for (var x = 0; x < scaledW; x++) {
@@ -224,7 +229,6 @@ function parseImage(arrayBuffer) {
         }
       URL.revokeObjectURL(url);
       if (!pixels.length) { reject(new Error("image has no visible content")); return; }
-      // Center on the actual visible content, not the full (possibly padded) canvas.
       var centerX = (minX + maxX + 1) / 2;
       var centerY = (minY + maxY + 1) / 2;
       var contentW = maxX - minX + 1;
@@ -327,8 +331,6 @@ function buildBinary(pixels, scaledW, scaledH, name, desc) {
   var posY = pixels.map(function(px){ return (-px.y + scaledH/2) * S; });
   var posZ = pixels.map(function(){ return 0; });
   var colors = pixels.map(function(px){ return { r:px.r, g:px.g, b:px.b }; });
-  // Full transparency support: derive a per-part Transparency float from
-  // the source alpha channel instead of treating pixels as fully opaque.
   var transparencies = pixels.map(function(px){ return 1 - px.a / 255; });
   var childRefs = partRefs.concat([1, 0]);
   var parentRefs = partRefs.map(function(){ return 0; }).concat([0, -1]);
