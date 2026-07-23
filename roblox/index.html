@@ -20,6 +20,10 @@
     li span { color: gray; font-size: 0.9rem; }
     p { margin: 0.2rem 0; }
     input, button, select { display: block; margin-bottom: 3px; }
+    #apiKey, #userId, #accountSelect {
+      width: 300px;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 <body>
@@ -111,10 +115,6 @@ function applyAccount(name) {
 
 function showAccountDropdown(selected) {
   buildAccountOptions(selected);
-  accountSelect.style.width = apiKeyInput.offsetWidth + "px";
-  accountSelect.style.height = "21px";
-  accountSelect.style.boxSizing = "border-box";
-  accountSelect.style.padding = "0 2px";
   apiKeyInput.style.display = "none";
   userIdInput.style.display = "none";
   accountSelect.style.display = "block";
