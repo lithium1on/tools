@@ -12,8 +12,16 @@
     p { margin: 0.2rem 0; }
     #grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     #grid img {
-      width: 96px; height: 96px; object-fit: contain;
-      background: #1a1a1a; border: 1px solid #555; cursor: pointer;
+      width: 420px; height: 420px; object-fit: contain;
+      background-color: #eee;
+      background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      border: 1px solid #555; cursor: pointer;
     }
     #grid img.copied { border-color: #6c6; }
   </style>
@@ -99,7 +107,7 @@ async function fetchThumbnails(assetIds) {
   for (var i = 0; i < assetIds.length; i += CHUNK) {
     var chunk = assetIds.slice(i, i + CHUNK);
     var url = "https://api.lithium.wtf/roblox/thumbnails/v1/assets?assetIds="
-      + chunk.join(",") + "&size=150x150&format=Png&isCircular=false";
+      + chunk.join(",") + "&size=420x420&format=Png&isCircular=false";
     var res = await fetch(url);
     if (!res.ok) { log("thumbnail batch failed: http " + res.status); continue; }
     var data = await res.json();
