@@ -81,17 +81,13 @@ matchFormFont();
 window.addEventListener("load", matchFormFont);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(matchFormFont);
 
-// apiKeyInput gets display:none once the account dropdown is shown, and a
-// hidden element's offsetWidth is 0 — so we cache the width once while it's
-// still visible instead of re-measuring it live (which caused the quality
-// dropdown to collapse to 0 after the first frame).
 var cachedInputWidth = apiKeyInput.offsetWidth;
 
 function styleQualitySelect() {
   qualitySelect.style.width = cachedInputWidth + "px";
   qualitySelect.style.height = "21px";
   qualitySelect.style.boxSizing = "border-box";
-  qualitySelect.style.padding = "0 2px";
+  qualitySelect.style.padding = "0 0px";
 }
 styleQualitySelect();
 window.addEventListener("load", function() {
@@ -138,7 +134,7 @@ function showAccountDropdown(selected) {
   accountSelect.style.width = cachedInputWidth + "px";
   accountSelect.style.height = "21px";
   accountSelect.style.boxSizing = "border-box";
-  accountSelect.style.padding = "0 2px";
+  accountSelect.style.padding = "0 0px";
   apiKeyInput.style.display = "none";
   userIdInput.style.display = "none";
   accountSelect.style.display = "block";
