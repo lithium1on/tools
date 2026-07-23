@@ -114,14 +114,6 @@ async function fetchInventoryModels(userId) {
   return candidates;
 }
 
-async function fetchAssetInfo(assetId, apiKey) {
-  var res = await fetch("https://api.lithium.wtf/roblox/assets/v1/assets/" + assetId, {
-    headers: { "x-api-key": apiKey }
-  });
-  if (!res.ok) throw new Error("http " + res.status);
-  return res.json();
-}
-
 async function fetchThumbnails(assetIds) {
   var results = {};
   var CHUNK = 100;
@@ -190,24 +182,8 @@ async function run(accountName) {
     log("no models named \"img\" found in this account's inventory.");
     return;
   }
-  log("found " + candidates.length + " candidate(s), verifying...");
-  var matched = [];
-  for (var i = 0; i < candidates.length; i++) {
-    try {
-      var info = await fetchAssetInfo(candidates[i], acc.apiKey);
-      if (info.displayName === "img" && info.description === "generated using lithium's tools") {
-        matched.push(candidates[i]);
-      }
-    } catch (e) {
-      log("skipping " + candidates[i] + ": " + e.message);
-    }
-  }
-  if (!matched.length) {
-    log("no matching models found.");
-    return;
-  }
-  log("fetching thumbnails for " + matched.length + " model(s)...");
-  await loadThumbnails(matched);
+  log("fetching thumbnails for " + candidates.length + " model(s)...");
+  await loadThumbnails(candidates);
   log("done.");
 }
 </script>
