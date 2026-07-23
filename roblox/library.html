@@ -87,10 +87,31 @@ async function getAccountCreds(name) {
   return savedAccounts[name] || null;
 }
 
-function getLibraryIds(userId) {
-  var list = [];
-  try { var stored = localStorage.getItem("library:" + userId); if (stored) list = JSON.parse(stored); } catch(e) {}
-  return list;
+async function fetchInventoryModels(userId) {
+  var candidates = [];
+  var cursor = "";
+  var MAX_PAGES = 50;
+  for (var page = 0; page < MAX_PAGES; page++) {
+    var url = "https://api.lithium.wtf/roblox/inventory/v2/users/" + userId
+      + "/inventory?assetTypes=Model&limit=100&sortOrder=Asc"
+      + (cursor ? "&cursor=" + encodeURIComponent(cursor) : "");
+    var res = await fetch(url);
+    if (!res.ok) throw new Error("http " + res.status);
+    var data = await res.json();
+    if (data.errors && data.errors.length) {
+      var err = data.errors[0];
+      if (err.code === 4 || /not authorized/i.test(err.message || "")) {
+        throw new Error("PRIVATE_INVENTORY");
+      }
+      throw new Error(err.message || "inventory api error");
+    }
+    (data.data || []).forEach(function(item) {
+      if (item.name === "img") candidates.push(String(item.assetId));
+    });
+    if (!data.nextPageCursor) break;
+    cursor = data.nextPageCursor;
+  }
+  return candidates;
 }
 
 async function fetchAssetInfo(assetId, apiKey) {
@@ -153,21 +174,32 @@ async function run(accountName) {
     log("no saved credentials found for \"" + accountName + "\". go back to the uploader and save credentials for this account first.");
     return;
   }
-  var ids = getLibraryIds(acc.userId);
-  if (!ids.length) {
-    log("no uploads recorded locally for this account yet. uploads made from this browser will show up here.");
+  log("scanning inventory...");
+  var candidates;
+  try {
+    candidates = await fetchInventoryModels(acc.userId);
+  } catch (e) {
+    if (e.message === "PRIVATE_INVENTORY") {
+      log("this account's inventory is set to private, so it can't be read. the account owner needs to set inventory visibility to public in their roblox privacy settings.");
+    } else {
+      log("inventory scan failed: " + e.message);
+    }
     return;
   }
-  log("checking " + ids.length + " tracked upload(s)...");
+  if (!candidates.length) {
+    log("no models named \"img\" found in this account's inventory.");
+    return;
+  }
+  log("found " + candidates.length + " candidate(s), verifying...");
   var matched = [];
-  for (var i = 0; i < ids.length; i++) {
+  for (var i = 0; i < candidates.length; i++) {
     try {
-      var info = await fetchAssetInfo(ids[i], acc.apiKey);
+      var info = await fetchAssetInfo(candidates[i], acc.apiKey);
       if (info.displayName === "img" && info.description === "generated using lithium's tools") {
-        matched.push(ids[i]);
+        matched.push(candidates[i]);
       }
     } catch (e) {
-      log("skipping " + ids[i] + ": " + e.message);
+      log("skipping " + candidates[i] + ": " + e.message);
     }
   }
   if (!matched.length) {
